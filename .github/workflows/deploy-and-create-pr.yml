@@ -47,3 +47,9 @@ jobs:
               repo: context.repo.repo,
               body: `Preview URL: ${url}`
             });
+
+        - name: Debug environment variables
+        run: |
+          echo "VERCEL_ORG_ID: ${{ env.VERCEL_ORG_ID }}"
+          echo "VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}"
+          echo "VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}"
