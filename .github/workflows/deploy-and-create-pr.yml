@@ -33,3 +33,11 @@ jobs:
               repo: context.repo.repo,
               body: "${{ steps.deploy.outputs.PROD_URL }}"
             })
+
+      - name: Push changes
+        run: |
+          git config user.name 'GitHub Actions'
+          git config user.email 'actions@github.com'
+          git add .
+          git commit -m "Add production URL to PR comment"
+          git push origin main
