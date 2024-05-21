@@ -1,66 +1,45 @@
-name: Deploy and Create PR with Vercel Preview URL
+name: Deploy to Vercel
 
 on:
   push:
     branches:
-      - feature/preview  # La branche sur laquelle vous travaillez
+      - feature/preview
 
 jobs:
-  deploy-and-create-pr:
+  deploy:
     runs-on: ubuntu-latest
-
+    permissions:
+      pull-requests: write
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Install Vercel CLI
-        run: npm install -g vercel
-
-      - name: Deploy to Vercel
+      - name: Deploy to Vercel Action
         id: vercel_deploy
         run: |
+          npm install -g vercel
           DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm)
           echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
-          echo "::set-output name=vercel_url::${DEPLOYMENT_URL}"
 
-      - name: Check Deployment URL
-        run: echo "Deployment URL is ${{ steps.vercel_deploy.outputs.vercel_url }}"
-
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v4
-        with:
-          token: ${{ secrets.MY_GITHUB_TOKEN }}
-          commit-message: "Add Vercel Preview URL"
-          title: "Vercel Preview URL"
-          body: "This PR contains the Vercel Preview URL: ${{ steps.vercel_deploy.outputs.vercel_url }}"
-          branch: "vercel-preview-url"
-          base: "main"
-
-      - name: Merge Pull Request
-        if: success()
-        uses: actions/github-script@v4
+      - name: Add PR comment
+        uses: actions/github-script@v6
         with:
           script: |
-            const github = require('@actions/github');
+            const deploymentUrl = process.env.DEPLOYMENT_URL;
+            const { context, github } = require('@actions/github');
+            const pr = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `feature/preview`
+            });
 
-            async function mergePullRequest() {
-              const context = github.context;
-              const prs = await github.rest.pulls.list({
+            if (pr.data.length > 0) {
+              const prNumber = pr.data[0].number;
+              await github.rest.issues.createComment({
+                issue_number: prNumber,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                state: 'open',
-                head: `vercel-preview-url`
+                body: `This PR contains the Vercel Preview URL: ${deploymentUrl}`
               });
-
-              if (prs.data.length > 0) {
-                await github.rest.pulls.merge({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: prs.data[0].number
-                });
-              } else {
-                console.log('No open pull request found.');
-              }
             }
-
-            await mergePullRequest();
