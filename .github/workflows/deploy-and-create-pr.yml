@@ -1,49 +1,62 @@
 name: Deploy and Create PR with Vercel Preview URL
 
-env:
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
 on:
   push:
     branches:
       - feature/preview
 
 jobs:
-  Deploy-Preview:
-    permissions:
-      pull-requests: write
+  deploy-and-create-pr:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
       - name: Install Vercel CLI
-        run: npm install --global vercel@latest
+        run: npm install -g vercel
 
-      - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build Project
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy Project to Vercel
-        id: deploy
+      - name: Deploy to Vercel
+        id: vercel_deploy
         run: |
-          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
-          echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
-          echo "Deployment URL: $DEPLOYMENT_URL"
+          DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm)
+          echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
+          echo "Deployment URL: ${DEPLOYMENT_URL}"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
-      - name: Comment PR with Preview URL
+      - name: Check Deployment URL
+        run: echo "Deployment URL is ${{ env.DEPLOYMENT_URL }}"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.MY_GITHUB_TOKEN }}
+          commit-message: "Add Vercel Preview URL"
+          title: "Vercel Preview URL"
+          body: "This PR contains the Vercel Preview URL: ${{ env.DEPLOYMENT_URL }}"
+          branch: "vercel-preview-url"
+          base: "main"
+
+      - name: Merge Pull Request
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const url = "${{ steps.deploy.outputs.url }}";
-            github.issues.createComment({
-              issue_number: context.issue.number,
+            const pr = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `Preview URL: ${url}`
+              state: 'open',
+              head: 'vercel-preview-url'
             });
+
+            if (pr.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.data[0].number,
+                body: `Vercel Preview URL: ${process.env.DEPLOYMENT_URL}`
+              });
+            }
+          github-token: ${{ secrets.MY_GITHUB_TOKEN }}
+
+
