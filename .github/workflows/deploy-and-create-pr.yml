@@ -3,7 +3,7 @@ name: Deploy and Create PR with Vercel Preview URL
 on:
   push:
     branches:
-      - feature/preview
+      - feature/preview  # La branche sur laquelle vous travaillez
 
 jobs:
   deploy-and-create-pr:
@@ -21,12 +21,10 @@ jobs:
         run: |
           DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm)
           echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
-          echo "Deployment URL: ${DEPLOYMENT_URL}"
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          echo "::set-output name=vercel_url::${DEPLOYMENT_URL}"
 
       - name: Check Deployment URL
-        run: echo "Deployment URL is ${{ env.DEPLOYMENT_URL }}"
+        run: echo "Deployment URL is ${{ steps.vercel_deploy.outputs.vercel_url }}"
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v4
@@ -34,29 +32,26 @@ jobs:
           token: ${{ secrets.MY_GITHUB_TOKEN }}
           commit-message: "Add Vercel Preview URL"
           title: "Vercel Preview URL"
-          body: "This PR contains the Vercel Preview URL: ${{ env.DEPLOYMENT_URL }}"
+          body: "This PR contains the Vercel Preview URL: ${{ steps.vercel_deploy.outputs.vercel_url }}"
           branch: "vercel-preview-url"
           base: "main"
 
       - name: Merge Pull Request
-        uses: actions/github-script@v6
+        if: success()
+        uses: actions/github-script@v4
         with:
           script: |
-            const pr = await github.rest.pulls.list({
+            const pr = await github.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
-              head: 'vercel-preview-url'
+              head: `vercel-preview-url`
             });
 
             if (pr.data.length > 0) {
-              await github.rest.issues.createComment({
+              await github.pulls.merge({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: pr.data[0].number,
-                body: `Vercel Preview URL: ${process.env.DEPLOYMENT_URL}`
+                pull_number: pr.data[0].number
               });
             }
-          github-token: ${{ secrets.MY_GITHUB_TOKEN }}
-
-
