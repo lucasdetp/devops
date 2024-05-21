@@ -1,20 +1,57 @@
-name: Deploy on Main Push to Vercel Preview
+name: Deploy and Create PR with Vercel Preview URL
 
 on:
   push:
     branches:
-      - main
+      - feature/preview 
 
 jobs:
-  Deploy-Preview:
+  deploy-and-create-pr:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
+
       - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-      - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-      - name: Build Project Artifacts
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
-      - name: Deploy Project Artifacts to Vercel
-        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+        run: npm install -g vercel
+
+      - name: Deploy to Vercel
+        id: vercel_deploy
+        run: |
+          DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm)
+          echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
+          echo "::set-output name=vercel_url::${DEPLOYMENT_URL}"
+
+      - name: Check Deployment URL
+        run: echo "Deployment URL is ${{ steps.vercel_deploy.outputs.vercel_url }}"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.MY_GITHUB_TOKEN }}
+          commit-message: "Add Vercel Preview URL"
+          title: "Vercel Preview URL"
+          body: "This PR contains the Vercel Preview URL: ${{ steps.vercel_deploy.outputs.vercel_url }}"
+          branch: "vercel-preview-url"
+          base: "main"
+
+      - name: Merge Pull Request
+        if: success()
+        uses: actions/github-script@v4
+        with:
+          script: |
+            const pr = await github.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `vercel-preview-url`
+            });
+
+            if (pr.data.length > 0) {
+              await github.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.data[0].number
+              });
+            }
