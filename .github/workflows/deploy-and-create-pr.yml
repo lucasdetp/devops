@@ -25,6 +25,7 @@ jobs:
       - name: Add PR comment
         uses: actions/github-script@v6
         with:
+          github-token: ${{ secrets.MY_GITHUB_TOKEN }}
           script: |
             await github.rest.issues.createComment({
               issue_number: context.payload.pull_request.number,
