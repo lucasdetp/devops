@@ -1,57 +1,34 @@
-name: Deploy and Create PR with Vercel Preview URL
-
+name: Deploy to Vercel
 on:
-  push:
-    branches:
-      - feature/preview  # La branche sur laquelle vous travaillez
+  pull_request:
+    types: [closed]
 
 jobs:
-  deploy-and-create-pr:
+  deploy:
     runs-on: ubuntu-latest
-
+    if: |
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      !contains(github.event.head_commit.message, '[skip ci]')
+    permissions:
+      pull-requests: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Install Vercel CLI
-        run: npm install -g vercel
-
-      - name: Deploy to Vercel
-        id: vercel_deploy
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Deploy to Vercel Action
+        id: deploy
         run: |
-          DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm)
-          echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
-          echo "::set-output name=vercel_url::${DEPLOYMENT_URL}"
+          npm i -g vercel
+          vercel link --yes --project ${{ secrets.VERCEL_PROJECT_ID }} --scope ${{ secrets.VERCEL_ORG_ID }} --token ${{ secrets.VERCEL_TOKEN }}
+          echo "PROD_URL=$(vercel --cwd ./ --prod --token ${{ secrets.VERCEL_TOKEN }})" >> $GITHUB_OUTPUT
 
-      - name: Check Deployment URL
-        run: echo "Deployment URL is ${{ steps.vercel_deploy.outputs.vercel_url }}"
-
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v4
-        with:
-          token: ${{ secrets.MY_GITHUB_TOKEN }}
-          commit-message: "Add Vercel Preview URL"
-          title: "Vercel Preview URL"
-          body: "This PR contains the Vercel Preview URL: ${{ steps.vercel_deploy.outputs.vercel_url }}"
-          branch: "vercel-preview-url"
-          base: "main"
-
-      - name: Merge Pull Request
-        if: success()
-        uses: actions/github-script@v4
+      - name: Add PR comment
+        uses: actions/github-script@v6
         with:
           script: |
-            const pr = await github.pulls.list({
+            await github.rest.issues.createComment({
+              issue_number: context.payload.pull_request.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              state: 'open',
-              head: `vercel-preview-url`
-            });
-
-            if (pr.data.length > 0) {
-              await github.pulls.merge({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: pr.data[0].number
-              });
-            }
+              body: "${{ steps.deploy.outputs.PROD_URL }}"
+            })
