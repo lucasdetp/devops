@@ -1,0 +1,32 @@
+name: Deploy and Create PR with Vercel Preview URL
+
+on:
+  push:
+    branches:
+      - main  
+
+jobs:
+  deploy-and-create-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Deploy to Vercel
+        id: vercel_deploy
+        run: |
+          DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm --scope ${{ secrets.VERCEL_PROJECT_ID }})
+          echo "::set-output name=vercel_url::$DEPLOYMENT_URL"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Add Vercel Preview URL"
+          title: "Vercel Preview URL"
+          body: "This PR contains the Vercel Preview URL: ${{ steps.vercel_deploy.outputs.vercel_url }}"
+          branch: "vercel-preview-url"
