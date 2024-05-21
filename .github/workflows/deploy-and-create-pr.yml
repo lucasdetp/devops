@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install Vercel CLI
         run: npm install -g vercel
@@ -21,13 +21,12 @@ jobs:
         run: |
           DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --confirm)
           echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
-          echo "Deployment URL: ${DEPLOYMENT_URL}"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
       - name: Create Pull Request
+        id: create_pr
         uses: peter-evans/create-pull-request@v4
-        id: cpr
         with:
           token: ${{ secrets.MY_GITHUB_TOKEN }}
           commit-message: "Add Vercel Preview URL"
@@ -54,14 +53,14 @@ jobs:
                 repo: context.repo.repo,
                 body: `Preview URL: ${process.env.DEPLOYMENT_URL}`
               });
-            })
+            });
 
   deploy-to-prod:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install Vercel CLI
         run: npm install -g vercel
@@ -70,6 +69,5 @@ jobs:
         run: |
           DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm)
           echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
-          echo "Deployment URL: ${DEPLOYMENT_URL}"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
