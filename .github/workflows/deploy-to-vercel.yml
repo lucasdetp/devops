@@ -24,19 +24,36 @@ jobs:
         run: |
           vercel link --yes --project ${{ secrets.VERCEL_PROJECT_ID }} --scope ${{ secrets.VERCEL_ORG_ID }} --token ${{ secrets.VERCEL_TOKEN }}
           if [[ ${{ github.event_name }} == 'pull_request' ]]; then
-            echo "PREVIEW_URL=$(vercel --cwd ./ --token ${{ secrets.VERCEL_TOKEN }})" >> $GITHUB_OUTPUT
+            PREVIEW_URL=$(vercel --cwd ./ --token ${{ secrets.VERCEL_TOKEN }})
+            echo "PREVIEW_URL=${PREVIEW_URL}" >> $GITHUB_OUTPUT
           else
-            vercel --cwd ./ --prod --token ${{ secrets.VERCEL_TOKEN }}
-          fi
+            PROD_URL=$(vercel --cwd ./ --prod --token ${{ secrets.VERCEL_TOKEN }})
+            echo "PROD_URL=${PROD_URL}" >> $GITHUB_OUTPUT
 
       - name: Add PR comment
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v6
         with:
           script: |
+            const previewUrl = '${{ steps.deploy.outputs.PREVIEW_URL }}';
             await github.rest.issues.createComment({
               issue_number: context.payload.pull_request.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: "Preview build url: ${{ steps.deploy.outputs.PREVIEW_URL }}"
+              body: `Preview build url: ${previewUrl}\nletsgo`
+            })
+
+      - name: Add commit comment
+        if: github.event_name == 'push'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const prodUrl = '${{ steps.deploy.outputs.PROD_URL }}';
+            const { owner, repo } = context.repo;
+            const commit_sha = context.sha;
+            await github.rest.repos.createCommitComment({
+              owner,
+              repo,
+              commit_sha,
+              body: `Production build url: ${prodUrl}\nletsgo`
             })
