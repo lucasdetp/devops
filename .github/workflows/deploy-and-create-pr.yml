@@ -1,14 +1,15 @@
 name: Deploy and Create PR with Vercel Preview URL
 on:
-  pull_request:
-    types: [closed]
+  push:
+    branches:
+      - feature/preview
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     if: |
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.base.ref == 'main' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/feature/preview' &&
       !contains(github.event.head_commit.message, '[skip ci]')
     permissions:
       pull-requests: write
@@ -33,11 +34,3 @@ jobs:
               repo: context.repo.repo,
               body: "${{ steps.deploy.outputs.PROD_URL }}"
             })
-
-      - name: Push changes
-        run: |
-          git config user.name 'GitHub Actions'
-          git config user.email 'actions@github.com'
-          git add .
-          git commit -m "Add production URL to PR comment"
-          git push origin main
