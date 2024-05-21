@@ -1,80 +1,34 @@
-name: Deploy and Create PR with Vercel Preview URL
-
+name: Deploy preview to Vercel on PR opened
 on:
-  push:
-    branches-ignore:
-      - main
+  pull_request:
+    types: [opened, synchronize]
 
 jobs:
-  deploy-and-create-pr:
+  deploy-preview:
     runs-on: ubuntu-latest
-
+    if: |
+      github.event.pull_request.merged == false &&
+      github.event.pull_request.base.ref == 'main' &&
+      !contains(github.event.head_commit.message, '[skip ci]')
+    permissions:
+      pull-requests: write
     steps:
-      # Step to check out the code
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v3
-
-      # Step to install Vercel CLI
-      - name: Install Vercel CLI
-        run: npm install -g vercel
-
-      # Step to deploy to Vercel (Preview environment)
-      - name: Deploy to Vercel (Preview)
-        id: vercel_deploy
+      - name: Deploy to Vercel Action
+        id: deploy
         run: |
-          DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --confirm)
-          echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
-          echo "deployment_url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
+          npm i -g vercel
+          vercel link --yes --project ${{ secrets.VERCEL_PROJECT_ID }} --scope ${{ secrets.VERCEL_ORG_ID }} --token ${{ secrets.VERCEL_TOKEN }}
+          echo "PREVIEW_URL=$(vercel --cwd ./ --token ${{ secrets.VERCEL_TOKEN }})" >> $GITHUB_OUTPUT
 
-      # Step to create a pull request
-      - name: Create Pull Request
-        id: create_pr
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.MY_GITHUB_TOKEN }}
-          commit-message: "Add Vercel Preview URL"
-          title: "Vercel Preview URL"
-          body: "This PR contains the Vercel Preview URL: ${{ steps.vercel_deploy.outputs.deployment_url }}"
-          branch: "vercel-preview-url"
-          base: "main"
-
-      # Step to comment on the pull request with the Preview URL
-      - name: Comment PR with Preview URL
+      - name: Add PR comment
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.MY_GITHUB_TOKEN }}
           script: |
-            const pr = await github.rest.pulls.list({
+            await github.rest.issues.createComment({
+              issue_number: context.payload.pull_request.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              state: 'open',
-              head: context.repo.owner + ':vercel-preview-url'
-            });
-            if (pr.data.length > 0) {
-              await github.rest.issues.createComment({
-                issue_number: pr.data[0].number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: `Preview URL: ${process.env.DEPLOYMENT_URL}`
-              });
-            }
-
-  deploy-to-prod:
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      # Step to check out the code
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      # Step to install Vercel CLI
-      - name: Install Vercel CLI
-        run: npm install -g vercel
-
-      # Step to deploy to Vercel (Production environment)
-      - name: Deploy to Vercel (Production)
-        run: |
-          DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm)
-          echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+              body: "Preview build url: ${{ steps.deploy.outputs.PREVIEW_URL }}"
+            })
