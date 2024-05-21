@@ -41,17 +41,26 @@ jobs:
         uses: actions/github-script@v4
         with:
           script: |
-            const pr = await github.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              head: `vercel-preview-url`
-            });
+            const github = require('@actions/github');
 
-            if (pr.data.length > 0) {
-              await github.pulls.merge({
+            async function mergePullRequest() {
+              const context = github.context;
+              const prs = await github.rest.pulls.list({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                pull_number: pr.data[0].number
+                state: 'open',
+                head: `vercel-preview-url`
               });
+
+              if (prs.data.length > 0) {
+                await github.rest.pulls.merge({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: prs.data[0].number
+                });
+              } else {
+                console.log('No open pull request found.');
+              }
             }
+
+            await mergePullRequest();
