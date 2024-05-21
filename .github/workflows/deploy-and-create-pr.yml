@@ -3,7 +3,7 @@ name: Deploy and Create PR with Vercel Preview URL
 on:
   push:
     branches:
-      - feature/preview  
+      - feature/preview  # La branche sur laquelle vous travaillez
 
 jobs:
   deploy-and-create-pr:
@@ -41,4 +41,17 @@ jobs:
         uses: actions/github-script@v4
         with:
           script: |
-            const pr =
+            const pr = await github.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `vercel-preview-url`
+            });
+
+            if (pr.data.length > 0) {
+              await github.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.data[0].number
+              });
+            }
