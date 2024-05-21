@@ -19,7 +19,7 @@ jobs:
       - name: Deploy to Vercel
         id: vercel_deploy
         run: |
-          DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm --scope ${{ secrets.VERCEL_PROJECT_ID }})
+          DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm)
           echo "::set-output name=vercel_url::$DEPLOYMENT_URL"
 
       - name: Create Pull Request
