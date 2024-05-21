@@ -17,17 +17,17 @@ jobs:
 
       - name: Deploy to Vercel
         id: vercel_deploy
+        if: github.ref == 'refs/heads/main' # Si on pousse sur la branche main
         run: |
           DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm)
           echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
 
-      - name: vercel-preview-url
-        uses: zentered/vercel-preview-url@v1.1.9
-        id: vercel_preview_url
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        with:
-          vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID }}
+      - name: Deploy to Vercel Preview URL
+        id: vercel_deploy_preview
+        if: github.ref == 'refs/heads/feature/preview' # Si on pousse sur la branche feature/preview
+        run: |
+          DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --confirm)
+          echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
 
       - name: Create Pull Request
         id: create_pr
