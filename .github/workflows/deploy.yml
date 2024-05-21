@@ -1,0 +1,18 @@
+name: Deploy to Vercel
+on:
+  push:
+    branches:
+      - main  # Remplacez par le nom de votre branche principale
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Vercel CLI and deploy
+        run: |
+          npm install -g vercel
+          vercel --token ${{ secrets.VERCEL_TOKEN }} --prod
