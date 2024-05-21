@@ -13,11 +13,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
       - name: Deploy to Vercel Action
         run: |
           npm i -g vercel
           vercel link --yes --project ${{ secrets.VERCEL_PROJECT_ID }} --scope ${{ secrets.VERCEL_ORG_ID }} --token ${{ secrets.VERCEL_TOKEN }}
-          echo "::set-output name=PROD_URL::$(vercel --cwd ./ --prod --token ${{ secrets.VERCEL_TOKEN }})"
+          PROD_URL=$(vercel --cwd ./ --prod --token ${{ secrets.VERCEL_TOKEN }})
+          echo "::set-output name=PROD_URL::$PROD_URL"
 
       - name: Add PR comment
         uses: actions/github-script@v6
@@ -27,5 +29,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: ${{ steps.etape1.outputs.PROD_URL }}
+              body: "${{ steps.deploy.outputs.PROD_URL }}"
             })
