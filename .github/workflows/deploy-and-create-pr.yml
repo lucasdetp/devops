@@ -3,56 +3,59 @@ name: Deploy and Create PR with Vercel Preview URL
 on:
   push:
     branches:
-      - '*'
+      - feature/preview
 
 jobs:
   deploy-and-create-pr:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install Vercel CLI
         run: npm install -g vercel
 
-      - name: Determine Branch
-        id: determine_branch
-        run: echo "BRANCH_NAME=$(echo $GITHUB_REF | cut -d'/' -f3)" >> $GITHUB_ENV
-
       - name: Deploy to Vercel
-        if: steps.determine_branch.outputs.BRANCH_NAME != 'main'
         id: vercel_deploy
+        if: github.ref == 'refs/heads/main' # Si on pousse sur la branche main
+        run: |
+          DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm)
+          echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
+
+      - name: Deploy to Vercel Preview URL
+        id: vercel_deploy_preview
+        if: github.ref == 'refs/heads/feature/preview' # Si on pousse sur la branche feature/preview
         run: |
           DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --confirm)
           echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
 
       - name: Create Pull Request
-        if: steps.determine_branch.outputs.BRANCH_NAME != 'main'
-        uses: peter-evans/create-pull-request@v4
+        id: create_pr
+        uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.MY_GITHUB_TOKEN }}
           commit-message: "Add Vercel Preview URL"
           title: "Vercel Preview URL"
-          body: "This PR contains the Vercel Preview URL: ${{ steps.vercel_deploy.outputs.DEPLOYMENT_URL }}"
+          body: "This PR contains the Vercel Preview URL: ${{ steps.vercel_deploy.outputs.vercel_url }}"
           branch: "vercel-preview-url"
           base: "main"
 
       - name: Comment PR with Preview URL
-        if: steps.determine_branch.outputs.BRANCH_NAME != 'main'
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.MY_GITHUB_TOKEN }}
           script: |
-            await github.rest.issues.createComment({
-              issue_number: context.payload.pull_request.number,
+            const pr = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: "Preview URL: ${{ steps.vercel_deploy.outputs.DEPLOYMENT_URL }}"
-            })
-
-      - name: Deploy to Vercel - Production
-        if: steps.determine_branch.outputs.BRANCH_NAME == 'main'
-        run: |
-          DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm)
-          echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
+              state: 'open',
+              head: context.repo.owner + ':vercel-preview-url'
+            });
+            if (pr.data.length > 0) {
+              await github.rest.issues.createComment({
+                issue_number: pr.data[0].number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `Preview URL: ${{ steps.vercel_deploy.outputs.vercel_url }}`
+              });
+            }
