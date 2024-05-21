@@ -10,31 +10,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step to check out the code
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # Step to install Vercel CLI
       - name: Install Vercel CLI
         run: npm install -g vercel
 
+      # Step to deploy to Vercel (Preview environment)
       - name: Deploy to Vercel (Preview)
         id: vercel_deploy
         run: |
           DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --confirm)
           echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          echo "deployment_url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
 
+      # Step to create a pull request
       - name: Create Pull Request
         id: create_pr
-        uses: peter-evans/create-pull-request@v4
+        uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.MY_GITHUB_TOKEN }}
           commit-message: "Add Vercel Preview URL"
           title: "Vercel Preview URL"
-          body: "This PR contains the Vercel Preview URL: ${{ env.DEPLOYMENT_URL }}"
+          body: "This PR contains the Vercel Preview URL: ${{ steps.vercel_deploy.outputs.deployment_url }}"
           branch: "vercel-preview-url"
           base: "main"
 
+      # Step to comment on the pull request with the Preview URL
       - name: Comment PR with Preview URL
         uses: actions/github-script@v6
         with:
@@ -53,18 +57,21 @@ jobs:
                 repo: context.repo.repo,
                 body: `Preview URL: ${process.env.DEPLOYMENT_URL}`
               });
-            });
+            }
 
   deploy-to-prod:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
+      # Step to check out the code
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # Step to install Vercel CLI
       - name: Install Vercel CLI
         run: npm install -g vercel
 
+      # Step to deploy to Vercel (Production environment)
       - name: Deploy to Vercel (Production)
         run: |
           DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm)
