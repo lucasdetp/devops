@@ -1,13 +1,12 @@
-name: Deploy to Vercel
+name: Deploy and Create PR with Vercel Preview URL
 
 on:
   push:
     branches:
-      - main
       - feature/preview
 
 jobs:
-  deploy:
+  deploy-and-create-pr:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -17,30 +16,31 @@ jobs:
         run: npm install -g vercel
 
       - name: Deploy to Vercel
-        id: deploy
+        id: vercel_deploy
         run: |
-          if [[ "${{ github.ref_name }}" == "main" ]]; then
-            vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm
-          else
-            DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --confirm)
-            echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
-            echo "Deployment URL: ${DEPLOYMENT_URL}"
+          DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --confirm)
+          echo "DEPLOYMENT_URL=${DEPLOYMENT_URL}" >> $GITHUB_ENV
+
+      - name: vercel-preview-url
+        uses: zentered/vercel-preview-url@v1.1.9
+        id: vercel_preview_url
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        with:
+          vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Create Pull Request
-        if: ${{ github.ref_name == 'feature/preview' }}
-        uses: peter-evans/create-pull-request@v4
+        id: create_pr
+        uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.MY_GITHUB_TOKEN }}
           commit-message: "Add Vercel Preview URL"
           title: "Vercel Preview URL"
-          body: "This PR contains the Vercel Preview URL: ${{ env.DEPLOYMENT_URL }}"
+          body: "This PR contains the Vercel Preview URL: ${{ steps.vercel_deploy.outputs.vercel_url }}"
           branch: "vercel-preview-url"
           base: "main"
 
       - name: Comment PR with Preview URL
-        if: ${{ github.ref_name == 'feature/preview' }}
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.MY_GITHUB_TOKEN }}
@@ -56,6 +56,6 @@ jobs:
                 issue_number: pr.data[0].number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `Preview URL: ${{ env.DEPLOYMENT_URL }}`
+                body: `Preview URL: ${{ steps.vercel_deploy.outputs.vercel_url }}`
               });
             }
