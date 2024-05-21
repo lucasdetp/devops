@@ -32,7 +32,7 @@ jobs:
           token: ${{ secrets.MY_GITHUB_TOKEN }}
           commit-message: "Add Vercel Preview URL"
           title: "Vercel Preview URL"
-          body: "This PR contains the Vercel Preview URL: ${{ env.DEPLOYMENT_URL }}"
+          body: "This PR contains the Vercel Preview URL: ${{ steps.vercel_deploy.outputs.vercel_url }}"
           branch: "vercel-preview-url"
           base: "main"
 
@@ -40,12 +40,11 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const { context, github } = require('@actions/github');
             const pr = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
-              head: `vercel-preview-url`
+              head: 'vercel-preview-url'
             });
 
             if (pr.data.length > 0) {
