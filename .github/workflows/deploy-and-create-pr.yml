@@ -41,10 +41,9 @@ jobs:
         uses: actions/github-script@v4
         with:
           script: |
-            const github = require('@actions/github');
+            const { context, github } = require('@actions/github');
 
             async function mergePullRequest() {
-              const context = github.context;
               const prs = await github.rest.pulls.list({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
