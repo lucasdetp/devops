@@ -16,6 +16,9 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel
 
+      - name: Create temporary branch
+        run: git checkout -b temp-branch
+
       - name: Deploy to Vercel
         id: vercel_deploy
         run: |
@@ -29,4 +32,3 @@ jobs:
           commit-message: "Add Vercel Preview URL"
           title: "Vercel Preview URL"
           body: "This PR contains the Vercel Preview URL: ${{ steps.vercel_deploy.outputs.vercel_url }}"
-          target: main
