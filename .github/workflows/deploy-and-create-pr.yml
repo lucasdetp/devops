@@ -29,3 +29,4 @@ jobs:
           commit-message: "Add Vercel Preview URL"
           title: "Vercel Preview URL"
           body: "This PR contains the Vercel Preview URL: ${{ steps.vercel_deploy.outputs.vercel_url }}"
+          target: main
