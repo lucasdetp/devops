@@ -37,8 +37,8 @@ jobs:
             const previewUrl = '${{ steps.deploy.outputs.PREVIEW_URL }}';
             const prodUrl = '${{ steps.deploy.outputs.PROD_URL }}';
             const body = prodUrl
-              ? `Preview build URL: ${previewUrl}\nProduction build URL: ${prodUrl}\nletsgo`
-              : `Preview build URL: ${previewUrl}\nletsgo`;
+              ? `Preview build URL: ${previewUrl}\nProduction build URL: ${prodUrl}\ncbon`
+              : `Preview build URL: ${previewUrl}\nc bon`;
             await github.rest.issues.createComment({
               issue_number: context.payload.pull_request.number,
               owner: context.repo.owner,
