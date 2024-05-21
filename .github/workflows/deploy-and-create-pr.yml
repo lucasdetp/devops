@@ -50,10 +50,13 @@ jobs:
             });
 
             if (pr.data.length > 0) {
-              await github.rest.pulls.merge({
+              await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                pull_number: pr.data[0].number
+                issue_number: pr.data[0].number,
+                body: `Vercel Preview URL: ${process.env.DEPLOYMENT_URL}`
               });
             }
           github-token: ${{ secrets.MY_GITHUB_TOKEN }}
+
+
