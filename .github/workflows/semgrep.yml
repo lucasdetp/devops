@@ -25,17 +25,38 @@ jobs:
         pip install semgrep
 
     - name: Run Semgrep
-      run: semgrep --config .semgrep.yml --error --metrics=off
+      id: run_semgrep
+      run: semgrep --config .semgrep.yml --error --metrics=off --output semgrep.sarif --json
+      continue-on-error: true
 
     - name: Archive Semgrep results
-      if: failure()
       uses: actions/upload-artifact@v3
       with:
         name: semgrep-results
         path: semgrep.sarif
 
     - name: Display Semgrep results
-      if: failure()
       run: |
         cat semgrep.sarif
-        touch .failed_semgrep
+
+    - name: Add PR comment with Semgrep results
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const sarif = JSON.parse(fs.readFileSync('semgrep.sarif', 'utf8'));
+          let findings = "";
+          sarif.runs[0].results.forEach(result => {
+            findings += `File: ${result.locations[0].physicalLocation.artifactLocation.uri}\n`;
+            findings += `Line: ${result.locations[0].physicalLocation.region.startLine}\n`;
+            findings += `Message: ${result.message.text}\n\n`;
+          });
+          const body = findings
+            ? `### Semgrep Analysis Found Issues\n\n**Details:**\n\n${findings}`
+            : `### Semgrep Analysis Passed\n\nNo issues found.`;
+          await github.rest.issues.createComment({
+            issue_number: context.payload.pull_request.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: body
+          });
