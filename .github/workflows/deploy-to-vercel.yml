@@ -68,5 +68,5 @@ jobs:
               issue_number: context.payload.pull_request.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: previewUrl ? `Preview build URL: ${previewUrl}` : `Erreur XSS détectée`
+              body: previewUrl ? `Preview build URL: ${previewUrl}` : `Preview build failed.`
             })
