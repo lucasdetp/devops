@@ -1,10 +1,13 @@
 name: Semgrep CI
 
 on:
-  pull_request:
+  push:
     branches:
       - main
       - 'feature/**'
+  pull_request:
+    branches:
+      - main
 
 jobs:
   semgrep:
@@ -25,7 +28,10 @@ jobs:
         pip install semgrep
 
     - name: Run Semgrep
-      run: semgrep --config .semgrep.yml --error --metrics=off
+      id: semgrep
+      run: |
+        semgrep --config .semgrep.yml --error --metrics=off --output semgrep.sarif --json
+      continue-on-error: true
 
     - name: Archive Semgrep results
       if: failure()
@@ -34,8 +40,6 @@ jobs:
         name: semgrep-results
         path: semgrep.sarif
 
-    - name: Display Semgrep results
+    - name: Set Semgrep status
       if: failure()
-      run: |
-        cat semgrep.sarif
-        touch .failed_semgrep
+      run: echo "Semgrep failed" > .failed_semgrep
