@@ -26,18 +26,18 @@ jobs:
 
     - name: Run Semgrep
       id: run_semgrep
-      run: semgrep --config .semgrep.yml --error --metrics=off --json > semgrep-results.json
+      run: semgrep --config .semgrep.yml --error --metrics=off --sarif > semgrep-results.sarif
 
     - name: Archive Semgrep results
       if: failure()
       uses: actions/upload-artifact@v3
       with:
         name: semgrep-results
-        path: semgrep-results.json
+        path: semgrep-results.sarif
 
     - name: Display Semgrep results
       if: failure()
-      run: cat semgrep-results.json
+      run: cat semgrep-results.sarif
 
     - name: Comment on PR if XSS error
       if: failure()
@@ -45,13 +45,15 @@ jobs:
       with:
         script: |
           const fs = require('fs');
-          const path = './semgrep-results.json';
+          const path = './semgrep-results.sarif';
           const semgrepResults = JSON.parse(fs.readFileSync(path, 'utf8'));
 
-          let message = '### Semgrep \n\nUne erreur XSS a été détectée dans votre code. Veuillez corriger cela avant de fusionner.\n\n';
+          let message = '### Semgrep\n\nUne erreur XSS a été détectée dans votre code. Veuillez corriger cela avant de fusionner.\n\n';
 
-          semgrepResults.results.forEach(result => {
-            message += `- Fichier: ${result.path}, Ligne: ${result.start.line}\n`;
+          semgrepResults.runs[0].results.forEach(result => {
+            const filePath = result.locations[0].physicalLocation.artifactLocation.uri;
+            const startLine = result.locations[0].physicalLocation.region.startLine;
+            message += `- Fichier: ${filePath}, Ligne: ${startLine}\n`;
           });
 
           await github.rest.issues.createComment({
