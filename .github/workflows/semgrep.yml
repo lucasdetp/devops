@@ -39,4 +39,6 @@ jobs:
 
     - name: Display Semgrep results
       if: failure()
-      run: cat semgrep.sarif
+      run: |
+        cat semgrep.sarif
+        touch .failed_semgrep

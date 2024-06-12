@@ -22,11 +22,16 @@ jobs:
       - name: Deploy to Vercel
         id: deploy
         run: |
-          vercel link --yes --project ${{ secrets.VERCEL_PROJECT_ID }} --scope ${{ secrets.VERCEL_ORG_ID }} --token ${{ secrets.VERCEL_TOKEN }}
-          if [[ ${{ github.event_name }} == 'pull_request' ]]; then
-            echo "PREVIEW_URL=$(vercel --cwd ./ --token ${{ secrets.VERCEL_TOKEN }})" >> $GITHUB_OUTPUT
+          if [ -f .failed_semgrep ]; then
+            echo "Semgrep failed. Deployment aborted."
+            exit 1
           else
-            vercel --cwd ./ --prod --token ${{ secrets.VERCEL_TOKEN }}
+            vercel link --yes --project ${{ secrets.VERCEL_PROJECT_ID }} --scope ${{ secrets.VERCEL_ORG_ID }} --token ${{ secrets.VERCEL_TOKEN }}
+            if [[ ${{ github.event_name }} == 'pull_request' ]]; then
+              echo "PREVIEW_URL=$(vercel --cwd ./ --token ${{ secrets.VERCEL_TOKEN }})" >> $GITHUB_OUTPUT
+            else
+              vercel --cwd ./ --prod --token ${{ secrets.VERCEL_TOKEN }}
+            fi
           fi
 
       - name: Add PR comment
