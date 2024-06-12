@@ -1,4 +1,4 @@
-name: Deploy to Vercel
+name: GitHub Actions Workflow
 
 on:
   pull_request:
@@ -8,45 +8,65 @@ on:
       - main
 
 jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install Semgrep
+        run: |
+          python -m pip install --upgrade pip
+          pip install semgrep
+
+      - name: Run Semgrep
+        run: semgrep --config .semgrep.yml --error --metrics=off
+
+      - name: Archive Semgrep results
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: semgrep-results
+          path: semgrep.sarif
+
+      - name: Display Semgrep results
+        if: failure()
+        run: |
+          cat semgrep.sarif
+          echo "erreur XSS detectée" > xss_error.txt
+
   deploy:
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
+    needs: semgrep
+    if: github.event_name == 'pull_request' && needs.semgrep.result == 'success'
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Install Vercel CLI
         run: npm install -g vercel
 
       - name: Deploy to Vercel
-        id: deploy
         run: |
-          if [ -f .failed_semgrep ]; then
-            echo "Semgrep failed. Deployment aborted."
-            exit 1
-          else
-            vercel link --yes --project ${{ secrets.VERCEL_PROJECT_ID }} --scope ${{ secrets.VERCEL_ORG_ID }} --token ${{ secrets.VERCEL_TOKEN }}
-            if [[ ${{ github.event_name }} == 'pull_request' ]]; then
-              echo "PREVIEW_URL=$(vercel --cwd ./ --token ${{ secrets.VERCEL_TOKEN }})" >> $GITHUB_OUTPUT
-            else
-              vercel --cwd ./ --prod --token ${{ secrets.VERCEL_TOKEN }}
-            fi
-          fi
+          vercel link --yes --project ${{ secrets.VERCEL_PROJECT_ID }} --scope ${{ secrets.VERCEL_ORG_ID }} --token ${{ secrets.VERCEL_TOKEN }}
+          echo "PREVIEW_URL=$(vercel --cwd ./ --token ${{ secrets.VERCEL_TOKEN }})" >> $GITHUB_ENV
 
       - name: Add PR comment
-        if: github.event_name == 'pull_request'
         uses: actions/github-script@v6
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const previewUrl = '${{ steps.deploy.outputs.PREVIEW_URL }}';
-            const prodUrl = '${{ steps.deploy.outputs.PROD_URL }}';
-            const body = prodUrl
-              ? `Preview build URL: ${previewUrl}\nProduction build URL: ${prodUrl}\ncbon`
-              : `Preview build URL: ${previewUrl}\nc bon`;
+            const previewUrl = process.env.PREVIEW_URL;
             await github.rest.issues.createComment({
               issue_number: context.payload.pull_request.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: body
+              body: previewUrl ? `Preview build URL: ${previewUrl}` : `Erreur XSS détectée`
             })
