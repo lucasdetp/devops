@@ -25,19 +25,23 @@ jobs:
         pip install semgrep
 
     - name: Run Semgrep
-      id: run_semgrep
-      run: semgrep --config .semgrep.yml --error --metrics=off --json > semgrep-results.json || touch semgrep-fail.txt
+      run: semgrep --config .semgrep.yml --error --metrics=off
 
     - name: Archive Semgrep results
       if: failure()
       uses: actions/upload-artifact@v3
       with:
         name: semgrep-results
-        path: semgrep-results.json
+        path: semgrep.sarif
 
     - name: Display Semgrep results
       if: failure()
-      run: cat semgrep-results.json
+      run: |
+        cat semgrep.sarif
+        touch .failed_semgrep
+
+    - name: Run Semgrep
+      run: semgrep --config .semgrep.yml --error --metrics=off || echo "Semgrep failed" > semgrep-fail.txt
 
     - name: Comment on PR if XSS error
       if: failure()
@@ -45,19 +49,13 @@ jobs:
       with:
         script: |
           const fs = require('fs');
-          const resultsPath = 'semgrep-results.json';
-          let message = '### Semgrep Analysis Found Issues\n\n';
-          if (fs.existsSync(resultsPath)) {
-            const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
-            results.results.forEach(result => {
-              message += `**File:** ${result.path}\n**Line:** ${result.start.line}\n**Message:** ${result.extra.message}\n\n`;
+          if (fs.existsSync('semgrep-fail.txt')) {
+            const issue_number = context.payload.pull_request.number;
+            const message = 'Une erreur XSS a été détectée dans votre code. Veuillez corriger cela avant de fusionner.';
+            github.rest.issues.createComment({
+              issue_number: issue_number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
             });
-          } else {
-            message += 'No detailed results available.';
           }
-          await github.rest.issues.createComment({
-            issue_number: context.payload.pull_request.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: message
-          });
