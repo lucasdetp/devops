@@ -28,18 +28,9 @@ jobs:
       - name: Run Semgrep
         run: semgrep --config .semgrep.yml --error --metrics=off
 
-      - name: Archive Semgrep results
+      - name: Check for XSS errors
         if: failure()
-        uses: actions/upload-artifact@v3
-        with:
-          name: semgrep-results
-          path: semgrep.sarif
-
-      - name: Display Semgrep results
-        if: failure()
-        run: |
-          cat semgrep.sarif
-          echo "erreur XSS detectée" > xss_error.txt
+        run: echo "erreur XSS detectée" > xss_error.txt
 
   deploy:
     runs-on: ubuntu-latest
@@ -58,15 +49,15 @@ jobs:
           vercel link --yes --project ${{ secrets.VERCEL_PROJECT_ID }} --scope ${{ secrets.VERCEL_ORG_ID }} --token ${{ secrets.VERCEL_TOKEN }}
           echo "PREVIEW_URL=$(vercel --cwd ./ --token ${{ secrets.VERCEL_TOKEN }})" >> $GITHUB_ENV
 
-      - name: Add PR comment
+      - name: Add PR comment if XSS error detected
+        if: failure() && steps.semgrep.outputs.xss_error == 'erreur XSS detectée'
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const previewUrl = process.env.PREVIEW_URL;
             await github.rest.issues.createComment({
               issue_number: context.payload.pull_request.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: previewUrl ? `Preview build URL: ${previewUrl}` : `Erreur XSS détectée`
+              body: 'Erreur XSS détectée'
             })
