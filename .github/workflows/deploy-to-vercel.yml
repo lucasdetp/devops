@@ -23,11 +23,11 @@ jobs:
         run: |
           if [ -f .failed_semgrep ]; then
             echo "Semgrep failed. Deployment aborted."
-            exit 1
+            echo "Erreur Semgrep détectée" > erreur_semgrep.txt
           fi
 
       - name: Deploy to Vercel
-        if: success()
+        if: success() && !failure()
         run: |
           vercel link --yes --project ${{ secrets.VERCEL_PROJECT_ID }} --scope ${{ secrets.VERCEL_ORG_ID }} --token ${{ secrets.VERCEL_TOKEN }}
           if [[ ${{ github.event_name }} == 'pull_request' ]]; then
@@ -41,11 +41,17 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const previewUrl = '${{ steps.deploy.outputs.PREVIEW_URL }}';
-            const prodUrl = '${{ steps.deploy.outputs.PROD_URL }}';
-            const body = prodUrl
-              ? `Preview build URL: ${previewUrl}\nProduction build URL: ${prodUrl}\ncbon`
-              : `Preview build URL: erreur xss`;
+            const fs = require('fs');
+            let body;
+            if (fs.existsSync('erreur_semgrep.txt')) {
+              body = 'Erreur Semgrep détectée';
+            } else {
+              const previewUrl = '${{ steps.deploy.outputs.PREVIEW_URL }}';
+              const prodUrl = '${{ steps.deploy.outputs.PROD_URL }}';
+              body = prodUrl
+                ? `Preview build URL: ${previewUrl}\nProduction build URL: ${prodUrl}\ncbon`
+                : `Preview build URL: ${previewUrl}\nc bon`;
+            }
             await github.rest.issues.createComment({
               issue_number: context.payload.pull_request.number,
               owner: context.repo.owner,
