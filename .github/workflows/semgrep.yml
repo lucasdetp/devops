@@ -1,0 +1,37 @@
+name: Semgrep CI
+
+on: [push, pull_request]
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.x
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Create Semgrep rules file
+        run: |
+          cat <<EOF > semgrep_rules.yml
+          rules:
+            - id: xss-detection
+              patterns:
+                - pattern-either:
+                    - pattern: |
+                        <script>alert($X)</script>
+                    - pattern: |
+                        document.write($X)
+              message: "Potential XSS vulnerability detected."
+              languages: [javascript, html]
+              severity: ERROR
+          EOF
+
+      - name: Run Semgrep
+        run: semgrep --config semgrep_rules.yml
