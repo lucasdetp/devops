@@ -25,9 +25,7 @@ jobs:
         pip install semgrep
 
     - name: Run Semgrep
-      id: run_semgrep
-      run: semgrep --config .semgrep.yml --error --metrics=off --output semgrep.sarif --json
-      continue-on-error: true
+      run: semgrep --config .semgrep.yml --error --metrics=off
 
     - name: Archive Semgrep results
       if: failure()
@@ -36,34 +34,8 @@ jobs:
         name: semgrep-results
         path: semgrep.sarif
 
-    - name: Set Semgrep status
+    - name: Display Semgrep results
       if: failure()
-      run: touch .failed_semgrep
-
-    - name: Upload Semgrep results as artifact
-      if: always()
-      uses: actions/upload-artifact@v3
-      with:
-        name: semgrep-results
-        path: semgrep.sarif
-
-    - name: Add PR comment with Semgrep results
-      if: failure() && github.event_name == 'pull_request'
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const fs = require('fs');
-          const sarif = JSON.parse(fs.readFileSync('semgrep.sarif', 'utf8'));
-          let findings = "";
-          sarif.runs[0].results.forEach(result => {
-            findings += `File: ${result.locations[0].physicalLocation.artifactLocation.uri}\n`;
-            findings += `Line: ${result.locations[0].physicalLocation.region.startLine}\n`;
-            findings += `Message: ${result.message.text}\n\n`;
-          });
-          const body = `### Semgrep Analysis Failed\n\n**Details:**\n\n${findings}`;
-          await github.rest.issues.createComment({
-            issue_number: context.payload.pull_request.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: body
-          });
+      run: |
+        cat semgrep.sarif
+        touch .failed_semgrep
