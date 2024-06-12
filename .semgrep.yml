@@ -1,0 +1,24 @@
+rules:
+  - id: detect-xss-innerHTML
+    patterns:
+      - pattern: |
+          $ELEMENT.innerHTML = $UNTRUSTED_INPUT
+    message: "Possible Cross-Site Scripting (XSS) vulnerability detected: Avoid assigning untrusted input directly to innerHTML"
+    languages: [javascript, typescript]
+    severity: WARNING
+
+  - id: detect-xss-document-write
+    patterns:
+      - pattern: |
+          document.write($UNTRUSTED_INPUT)
+    message: "Possible Cross-Site Scripting (XSS) vulnerability detected: Avoid using document.write with untrusted input"
+    languages: [javascript, typescript]
+    severity: WARNING
+
+  - id: detect-xss-jquery-html
+    patterns:
+      - pattern: |
+          $($TARGET).html($UNTRUSTED_INPUT)
+    message: "Possible Cross-Site Scripting (XSS) vulnerability detected: Avoid using jQuery html() with untrusted input"
+    languages: [javascript, typescript]
+    severity: WARNING

@@ -1,4 +1,5 @@
-function displayInput() {
-    var input = document.getElementById('inputTest').value;
-    document.getElementById('output').innerHTML = input;
-}
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const userInput = urlParams.get('userInput');
+    document.getElementById('output').innerHTML = userInput;
+});
