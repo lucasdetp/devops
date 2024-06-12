@@ -1,0 +1,62 @@
+name: Semgrep CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'feature/**'
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Install Semgrep
+      run: |
+        python -m pip install --upgrade pip
+        pip install semgrep
+
+    - name: Run Semgrep
+      id: run_semgrep
+      run: semgrep --config .semgrep.yml --error --metrics=off --json > semgrep-results.json
+
+    - name: Archive Semgrep results
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: semgrep-results
+        path: semgrep-results.json
+
+    - name: Display Semgrep results
+      if: failure()
+      run: cat semgrep-results.json
+
+    - name: Comment on PR if XSS error
+      if: failure()
+      uses: actions/github-script@v5
+      with:
+        script: |
+          const fs = require('fs');
+          const path = './semgrep-results.json';
+          const semgrepResults = JSON.parse(fs.readFileSync(path, 'utf8'));
+
+          let message = '### Semgrep \n\nUne erreur XSS a été détectée dans votre code. Veuillez corriger cela avant de fusionner.\n\n';
+
+          semgrepResults.results.forEach(result => {
+            message += `- Fichier: ${result.path}, Ligne: ${result.start.line}\n`;
+          });
+
+          await github.rest.issues.createComment({
+            issue_number: context.payload.pull_request.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: message
+          });
