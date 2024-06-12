@@ -1,35 +1,42 @@
-name: Semgrep CI
+name: Semgrep Analysis
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
 
 jobs:
   semgrep:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.x
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Install Semgrep
-        run: pip install semgrep
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
 
-      - name: Create Semgrep rules file
-        run: |
-          cat <<EOF > semgrep_rules.yml
-          rules:
-            - id: xss-detection
-              patterns:
-                - pattern-either:
-                    - pattern: document.write($X)
-                    - pattern: document.getElementById($ID).innerHTML = $X
-              message: "Potential XSS vulnerability detected."
-              languages: [javascript]
-              severity: ERROR
-          EOF
+    - name: Install Semgrep
+      run: |
+        python -m pip install --upgrade pip
+        pip install semgrep
 
-      - name: Run Semgrep
-        run: semgrep --config semgrep_rules.yml
+    - name: Run Semgrep
+      run: semgrep --config .semgrep.yml --error --metrics=off
+
+    - name: Archive Semgrep results
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: semgrep-results
+        path: semgrep.sarif
+
+    - name: Display Semgrep results
+      if: failure()
+      run: cat semgrep.sarif
