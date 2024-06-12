@@ -1,4 +1,4 @@
 function displayInput() {
     var input = document.getElementById('inputTest').value;
-    document.getElementById('output').innerHTML = input; // Vulnérable aux XSS
+    document.getElementById('output').innerHTML = input;
 }

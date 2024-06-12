@@ -24,12 +24,10 @@ jobs:
             - id: xss-detection
               patterns:
                 - pattern-either:
-                    - pattern: |
-                        <script>alert($X)</script>
-                    - pattern: |
-                        document.write($X)
+                    - pattern: document.write($X)
+                    - pattern: document.getElementById($ID).innerHTML = $X
               message: "Potential XSS vulnerability detected."
-              languages: [javascript, html]
+              languages: [javascript]
               severity: ERROR
           EOF
 
