@@ -23,6 +23,8 @@ jobs:
         run: |
           if [ -f .failed_semgrep ]; then
             echo "Semgrep failed. Deployment aborted."
+            semgrep --sarif out.sarif --config .semgrep.yml
+            echo "::set-output name=semgrep_error::$(cat out.sarif)"
             echo "Erreur Semgrep détectée" > erreur_semgrep.txt
           fi
 
@@ -45,11 +47,13 @@ jobs:
             let body;
             if (fs.existsSync('erreur_semgrep.txt')) {
               body = 'Erreur Semgrep détectée';
+              const semgrepError = '${{ steps.deploy.outputs.semgrep_error }}';
+              body += '\n\n' + semgrepError;
             } else {
               const previewUrl = '${{ steps.deploy.outputs.PREVIEW_URL }}';
               const prodUrl = '${{ steps.deploy.outputs.PROD_URL }}';
               body = prodUrl
-                ? `Preview build URL: ${previewUrl}\nProduction build URL: ${prodUrl}\ncbon`
+                ? `Preview build URL: ${previewUrl}\nProduction build URL: ${prodUrl}\nc bon`
                 : `Preview build URL: ${previewUrl}\nc bon`;
             }
             await github.rest.issues.createComment({
